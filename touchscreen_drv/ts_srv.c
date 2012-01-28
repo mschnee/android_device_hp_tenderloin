@@ -68,8 +68,8 @@
 #define MAX_CLIST 75
 #define MAX_DELTA 25 // this value is squared to prevent the need to use sqrt
 #define TOUCH_THRESHOLD 24 // threshold for what is considered a valid touch
-#define HARD_PRESS 68
-#define HARD_UNPRESS 41
+#define HARD_PRESS 52
+#define HARD_UNPRESS 32
 
 unsigned char cline[64];
 unsigned int cidx=0;
