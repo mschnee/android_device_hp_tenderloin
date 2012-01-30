@@ -68,8 +68,11 @@
 #define MAX_CLIST 75
 #define MAX_DELTA 25 // this value is squared to prevent the need to use sqrt
 #define TOUCH_THRESHOLD 24 // threshold for what is considered a valid touch
-#define HARD_PRESS 52
-#define HARD_UNPRESS 32
+#define HARD_PRESS 52 // threshold to invoke the hard press filter
+#define HARD_UNPRESS 32 // theshold for end of the invalidated area filter
+
+#define DEBOUNCE_FILTER 1
+#define DEBOUNCE_RADIUS 2
 
 unsigned char cline[64];
 unsigned int cidx=0;
@@ -218,6 +221,13 @@ int calc_point(void)
 	static int previoustpc;
 	int clc=0;
 	struct candidate clist[MAX_CLIST];
+#if DEBOUNCE_FILTER
+	int new_debounce_touch=0;
+	static float initiali, initialj;
+
+	if (tpoint[0].i < 0)
+		new_debounce_touch=1;
+#endif
 
     //Record values for processing later
 	for(i=0; i < previoustpc; i++) {
@@ -247,14 +257,14 @@ int calc_point(void)
 					// this is a high value or hard press, so we're going to
 					// find the full size of the hard press & calculate a center
 					// then invalidate all of the other areas within this radius
-					int mini=i,maxi=i,minj=j,maxj=j, power = matrix[i][j];
+					int mini=i,maxi=i,minj=j,maxj=j;
 					check_hard_press_points(&mini, &maxi, &minj, &maxj, i, j);
 					int centeri, centerj;
 					centeri = mini + ((maxi - mini) / 2);
 					centerj = minj + ((maxj - minj) / 2);
-					clist[clc].pw = power;
 					clist[clc].i = centeri;
 					clist[clc].j = centerj;
+					clist[clc].pw = matrix[centeri][centerj];
 					clc++;
 				}
 				else if (!invalid_matrix[i][j]) {
@@ -274,16 +284,16 @@ int calc_point(void)
 						}
 					}
 #if HARD_PRESS_FILTER
-				} // else if (!invalid_matrix[i][j]) {
+				}
 #endif
-			} // end if (clc < MAX_CLIST)
+			}
 		}
 #if RAW_DATA_DEBUG
-		printf("|");
+		printf("|\n");
 #endif
 	}
 #if RAW_DATA_DEBUG
-	printf("end of raw data\n");
+	printf("end of raw data\n"); // helps separate one frame from the next
 #endif
 
 #if DEBUG
@@ -361,6 +371,27 @@ int calc_point(void)
 #if AVG_FILTER
 			avg_filter(&tpoint[k]);
 #endif //AVG_FILTER
+#if DEBOUNCE_FILTER
+			if (tpc == 1) {
+				if (new_debounce_touch && k == 0) {
+					initiali = tpoint[k].i;
+					initialj = tpoint[k].j;
+				} else if (initiali > 0) {
+					int mini = (initiali*768/29)  - DEBOUNCE_RADIUS,
+						maxi = (initiali*768/29)  + DEBOUNCE_RADIUS,
+						minj = (initialj*1024/39) - DEBOUNCE_RADIUS,
+						maxj = (initialj*1024/39) + DEBOUNCE_RADIUS,
+						actuali = (tpoint[k].i*768/29),
+						actualj = (tpoint[k].j*1024/39);
+					if (actuali >= mini && actuali <= maxi && actualj >= minj && actualj <= maxj) {
+						tpoint[k].i = initiali;
+						tpoint[k].j = initialj;
+					} else {
+						initiali = -100; // invalidate
+					}
+				}
+			}
+#endif
 			send_uevent(uinput_fd, EV_KEY, BTN_TOUCH, 1);
 #if USERSPACE_270_ROTATE
 			send_uevent(uinput_fd, EV_ABS, ABS_MT_POSITION_X, tpoint[k].i*768/29);
