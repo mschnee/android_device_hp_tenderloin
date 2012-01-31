@@ -439,7 +439,7 @@ int cline_valid(unsigned int extras)
 
 int consume_line(void)
 {
-	int i,ret=0;
+	int i,j,ret=0;
 
 	if(cline[1] == 0x47)
 	{
@@ -449,16 +449,19 @@ int consume_line(void)
 
 	if(cline[1] == 0x43)
 	{
+		//This is a start event. clear the matrix
+		if(cline[2] & 0x80)
+		{
+			for(i=0; i < 30; i++)
+				for(j=0; j < 40; j++)
+					matrix[i][j] = 0;
+		}
+
 		//Write the line into the matrix
 		for(i=0; i < 40; i++)
 			matrix[cline[2] & 0x1F][i] = cline[i+3];
 	}
 
-//	printf("Received %d bytes\n", cidx-1);
-		
-/*		for(i=0; i < cidx; i++)
-			printf("%2.2X ",cline[i]);
-		printf("\n");	*/
 	cidx = 0;
 
 	return ret;
