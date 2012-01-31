@@ -67,12 +67,12 @@
 #define MAX_TOUCH 10
 #define MAX_CLIST 75
 #define MAX_DELTA 25 // this value is squared to prevent the need to use sqrt
-#define TOUCH_THRESHOLD 24 // threshold for what is considered a valid touch
+#define TOUCH_THRESHOLD 28 // threshold for what is considered a valid touch
 #define HARD_PRESS 52 // threshold to invoke the hard press filter
 #define HARD_UNPRESS 32 // theshold for end of the invalidated area filter
 
 #define DEBOUNCE_FILTER 1
-#define DEBOUNCE_RADIUS 2
+#define DEBOUNCE_RADIUS 2 // radius for debounce in pixels
 
 unsigned char cline[64];
 unsigned int cidx=0;
