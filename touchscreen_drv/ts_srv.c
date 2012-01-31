@@ -72,7 +72,9 @@ unsigned int cidx=0;
 unsigned char matrix[30][40]; 
 int uinput_fd;
 
-/* mschnee: wrapper for ts configuration loading */
+/* mschnee: wrapper for ts configuration loading 
+ * This is a quick-and-dirty proof-of-concept implementation
+ * */
 #define CONFIG_FILE "/system/ts_srv.cfg"
 #define LINE_MAX 32
 enum configToken 
