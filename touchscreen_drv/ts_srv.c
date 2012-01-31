@@ -54,10 +54,11 @@
 
 /* Set to 1 to see raw data from the driver */
 #define RAW_DATA_DEBUG 0
+// removes values below threshold for easy reading, set to 0 to see everything
+// a value of 2 should remove most unwanted output
+#define RAW_DATA_THRESHOLD 0
 
 #define AVG_FILTER 1
-
-#define HARD_PRESS_FILTER 1
 
 #define USERSPACE_270_ROTATE 0
 
@@ -68,9 +69,16 @@
 #define MAX_CLIST 75
 #define MAX_DELTA 25 // this value is squared to prevent the need to use sqrt
 #define TOUCH_THRESHOLD 28 // threshold for what is considered a valid touch
-#define HARD_PRESS 52 // threshold to invoke the hard press filter
-#define HARD_UNPRESS 32 // theshold for end of the invalidated area filter
 
+// enables filtering of larger touch areas like the side of your thumb into
+// a single touch
+#define LARGE_AREA_FILTER 1
+#define LARGE_AREA_THRESHOLD 52 // threshold to invoke the large area filter
+#define LARGE_AREA_UNPRESS 32 // threshold for end of the large area
+
+// enables filtering of a single touch to make it easier to long press
+// keeps the initial touch point the same so long as it stays within
+// the radius
 #define DEBOUNCE_FILTER 1
 #define DEBOUNCE_RADIUS 2 // radius for debounce in pixels
 
@@ -191,22 +199,28 @@ void liftoff(void)
 	send_uevent(uinput_fd, EV_SYN, SYN_REPORT, 0);
 }
 
-#if HARD_PRESS_FILTER
-void check_hard_press_points(int *mini, int *maxi, int *minj, int *maxj, int i, int j){
+#if LARGE_AREA_FILTER
+void check_large_area_points(int *mini, int *maxi, int *minj, int *maxj, int i, int j){
 	// invalidate this touch point so that we don't process it later
 	invalid_matrix[i][j] = 1;
-	if (i < *mini) *mini = i;
-	if (i > *maxi) *maxi = i;
-	if (j < *minj) *minj = j;
-	if (j > *maxj) *maxj = j;
-	if(i>0  && !invalid_matrix[i-1][j] && matrix[i-1][j] > HARD_UNPRESS)
-		check_hard_press_points(mini, maxi, minj, maxj, i-1, j);
-	if(i<29 && !invalid_matrix[i+1][j] && matrix[i+1][j] > HARD_UNPRESS)
-		check_hard_press_points(mini, maxi, minj, maxj, i+1, j);
-	if(j>0  && !invalid_matrix[i][j-1] && matrix[i][j-1] > HARD_UNPRESS)
-		check_hard_press_points(mini, maxi, minj, maxj, i, j-1);
-	if(j<39 && !invalid_matrix[i][j+1] && matrix[i][j+1] > HARD_UNPRESS)
-		check_hard_press_points(mini, maxi, minj, maxj, i, j+1);
+	// update min and max values for i and j if needed
+	if (i < *mini)
+		*mini = i;
+	if (i > *maxi)
+		*maxi = i;
+	if (j < *minj)
+		*minj = j;
+	if (j > *maxj)
+		*maxj = j;
+	// check nearby points to see if they are above LARGE_AREA_UNPRESS
+	if(i>0  && !invalid_matrix[i-1][j] && matrix[i-1][j] > LARGE_AREA_UNPRESS)
+		check_large_area_points(mini, maxi, minj, maxj, i-1, j);
+	if(i<29 && !invalid_matrix[i+1][j] && matrix[i+1][j] > LARGE_AREA_UNPRESS)
+		check_large_area_points(mini, maxi, minj, maxj, i+1, j);
+	if(j>0  && !invalid_matrix[i][j-1] && matrix[i][j-1] > LARGE_AREA_UNPRESS)
+		check_large_area_points(mini, maxi, minj, maxj, i, j-1);
+	if(j<39 && !invalid_matrix[i][j+1] && matrix[i][j+1] > LARGE_AREA_UNPRESS)
+		check_large_area_points(mini, maxi, minj, maxj, i, j+1);
 }
 #endif
 
@@ -240,42 +254,47 @@ int calc_point(void)
 	}
 
 	// generate list of high values
-#if HARD_PRESS_FILTER
+#if LARGE_AREA_FILTER
 	memset(&invalid_matrix, 0, sizeof(invalid_matrix));
 #endif
 	for(i=0; i < 30; i++) {
 		for(j=0; j < 40; j++) {
 #if RAW_DATA_DEBUG
-			if (matrix[i][j] < 3)
+			if (matrix[i][j] < RAW_DATA_THRESHOLD)
 				printf("   ");
 			else
 				printf("%2.2X ", matrix[i][j]);
 #endif
 			if (clc < MAX_CLIST) {
-#if HARD_PRESS_FILTER
-				if(matrix[i][j] > HARD_PRESS && !invalid_matrix[i][j]) {
-					// this is a high value or hard press, so we're going to
-					// find the full size of the hard press & calculate a center
-					// then invalidate all of the other areas within this radius
+#if LARGE_AREA_FILTER
+				if(matrix[i][j] > LARGE_AREA_THRESHOLD && !invalid_matrix[i][j]) {
+					// this is a large area press (e.g. the side of your thumb)
+					// so we will scan all the points nearby and if they are
+					// above the LARGE_AREA_UNPRESS we mark them invalid and
+					// track the min and max i,j location so that we can
+					// calculate a center for the large area press
 					int mini=i,maxi=i,minj=j,maxj=j;
-					check_hard_press_points(&mini, &maxi, &minj, &maxj, i, j);
+					check_large_area_points(&mini, &maxi, &minj, &maxj, i, j);
 					int centeri, centerj;
+					// calculate the center
 					centeri = mini + ((maxi - mini) / 2);
 					centerj = minj + ((maxj - minj) / 2);
+					// set the point to the center
 					clist[clc].i = centeri;
 					clist[clc].j = centerj;
 					clist[clc].pw = matrix[centeri][centerj];
 					clc++;
 				}
-				else if (!invalid_matrix[i][j]) {
+				else if (!invalid_matrix[i][j])
 #endif
+				{
 					if(matrix[i][j] > TOUCH_THRESHOLD) {
 						int cvalid=1;
-						//check if local maxima
+						// check if local maxima
 						if(i>0  && matrix[i-1][j] > matrix[i][j]) cvalid = 0;
 						if(i<29 && matrix[i+1][j] > matrix[i][j]) cvalid = 0;
 						if(j>0  && matrix[i][j-1] > matrix[i][j]) cvalid = 0;
-						if(j<39 && matrix[i][j+1] > matrix[i][j]) cvalid = 0; 
+						if(j<39 && matrix[i][j+1] > matrix[i][j]) cvalid = 0;
 						if(cvalid) {
 							clist[clc].pw = matrix[i][j];
 							clist[clc].i = i;
@@ -283,9 +302,7 @@ int calc_point(void)
 							clc++;
 						}
 					}
-#if HARD_PRESS_FILTER
 				}
-#endif
 			}
 		}
 #if RAW_DATA_DEBUG
@@ -372,18 +389,29 @@ int calc_point(void)
 			avg_filter(&tpoint[k]);
 #endif //AVG_FILTER
 #if DEBOUNCE_FILTER
+			// The debounce filter only works on a single touch
+			// We record the initial touchdown point, calculate a radius in
+			// pixels and re-center the point if we're still within the
+			// radius.  Once we leave the radius, we invalidate so that we
+			// don't debounce again even if we come back to the radius
 			if (tpc == 1) {
 				if (new_debounce_touch && k == 0) {
+					// we record the initial location of a new touch
 					initiali = tpoint[k].i;
 					initialj = tpoint[k].j;
-				} else if (initiali > 0) {
+				} else if (initiali > -20) {
+					// calculate pixel locations around the initial touch
+					// and locations for the current touch
 					int mini = (initiali*768/29)  - DEBOUNCE_RADIUS,
 						maxi = (initiali*768/29)  + DEBOUNCE_RADIUS,
 						minj = (initialj*1024/39) - DEBOUNCE_RADIUS,
 						maxj = (initialj*1024/39) + DEBOUNCE_RADIUS,
 						actuali = (tpoint[k].i*768/29),
 						actualj = (tpoint[k].j*1024/39);
+					// see if the current touch is still inside the debounce
+					// radius
 					if (actuali >= mini && actuali <= maxi && actualj >= minj && actualj <= maxj) {
+						// set the point to the original point - debounce!
 						tpoint[k].i = initiali;
 						tpoint[k].j = initialj;
 					} else {
