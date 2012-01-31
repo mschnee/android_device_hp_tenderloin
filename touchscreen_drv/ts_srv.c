@@ -152,10 +152,6 @@ int get_config(configToken t) {
         }
 
     }
-/*
- * DEBUG, RAW_DATA_DEBUG, AVG_FILTER, USERSPACE_270_ROTATE, RECV_BUF_SIZE,
- *     LIFTOFF_TIMEOUT, MAX_TOUCH, MAX_CLIST, MAX_DELTA, TOUCH_THRESHOLD
- *     */
     switch(t) {
     case DEBUG: return s_debug; break;
     case RAW_DATA_DEBUG: return s_raw_data_debug; break;
