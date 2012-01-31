@@ -96,6 +96,7 @@ enum configToken
 	LIFTOFF_TIMEOUT, MAX_TOUCH, MAX_CLIST, MAX_DELTA, TOUCH_THRESHOLD
 };
 
+#define sc(a,b) strstr(a,b)!=NULL
 /**
  *	A small wrapper to load settings from a file or use defaults, isntead
  *	if #define'ing them.
@@ -103,37 +104,74 @@ enum configToken
 	*	@return int com
  */
 int get_config(configToken t) {
-	static int 
-		s_opened = 0,
-		s_debug = 0,
-		s_raw_data_debug = 0,
-		s_avg_filter = 1,
-		s_userspace_270_rotate = 0,
-		s_recv_buf_size = 1540,
-		s_liftoff_timeout 25000,
-		s_max_touch = 10,
-		s_max_clist =75,
-		s_max_delta = 25,
-		s_touch_threshold = 24;
+    static int 
+        s_opened = 0,
+        s_debug = 0,
+        s_raw_data_debug = 0,
+        s_avg_filter = 1,
+        s_userspace_270_rotate = 0,
+        s_recv_buf_size = 1540,
+        s_liftoff_timeout 25000,
+        s_max_touch = 10,
+        s_max_clist =75,
+        s_max_delta = 25,
+        s_touch_threshold = 24;
 
-	if(!s_opened) {
-		s_opened = 1;
-		if(int settings_fd = open(CONFIG_FILE,O_RDONLY)){
-			/* allocate buffer */
-			char buff[LINE_MAX] = {0};
+    /* this block should only run once at startup */
+    if(!s_opened) {
+	    s_opened = 1;
+        if(int settings_fd = open(CONFIG_FILE,O_RDONLY)){
+            /* allocate buffer */
+            char buff[LINE_MAX] = {0};
 
-			/* read */
-			while(fgets(buff,LINE_MAX,fp) != NULL) {
-				
-			}
-		} else {
-			// some kind of error opening the file.
-		}
+            /* read */
+            while(fgets(buff,LINE_MAX,fp) != NULL) {
+                if(sc(buff,"DEBUG="))
+                    s_debug = atoi(buff+6);
+                else if(sc(buff,"RAW_DATA_DEBUG="))
+                    s_raw_data_debug = atoi(buff+15);
+                else if(sc(buff,"AVG_FILTER="))
+                    s_avg_filter = atoi(buff+11);
+                else if(sc(buff,"USERSPACE_270_FILTER="))
+                    s_userspace_270_filter = atoi(buff+21);
+                else if(sc(buff,"RECV_BUF_SIZE="))
+                    s_recv_buf_size = atoi(buff+14);
+                else if(sc(buff,"LIFTOFF_TIMEOUT="))
+                    s_liftoff_timeout = atoi(buff+16);
+                else if(sc(buff,"MAX_TOUCH="))
+                    s_max_touch = atoi(buff+10);
+                else if(sc(buff,"MAX_CLIST="))
+                    s_max_clist = atoi(buff+10);
+                else if(sc(buff,"MAX_DELTA="))
+                    s_max_delta = atoi(buff+10);
+                else if(sc(buff,"TOUCH_THRESHOLD="))
+                    s_touch_threshold = atoi(buff+16);
+            }
+        } else {
+            // some kind of error opening the file.
+        }
 
-	}
+    }
+/*
+ * DEBUG, RAW_DATA_DEBUG, AVG_FILTER, USERSPACE_270_ROTATE, RECV_BUF_SIZE,
+ *     LIFTOFF_TIMEOUT, MAX_TOUCH, MAX_CLIST, MAX_DELTA, TOUCH_THRESHOLD
+ *     */
+    switch(t) {
+    case DEBUG: return s_debug; break;
+    case RAW_DATA_DEBUG: return s_raw_data_debug; break;
+    case AVG_FILTER: return s_avg_filter; break;
+    case USERSPACE_270_ROTATE: return s_userspace_270_filter; break;
+    case RECV_BUF_SIZE: return s_recv_buf_size; break;
+    case LIFTOFF_TIMEOUT: return s_liftoff_timeout; break;
+    case MAX_TOUCH: return s_max_touch; break;
+    case MAX_CLIST: return s_max_clist; break;
+    case MAX_DELTA: return s_max_delta; break;
+    case TOUCH_THRESHOLD: return s_touch_threshold; break;
+    default return 0;
+    }
 
-	
 }
+#undef sc
 
 int send_uevent(int fd, __u16 type, __u16 code, __s32 value)
 {
