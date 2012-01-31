@@ -88,6 +88,53 @@ unsigned char matrix[30][40];
 int invalid_matrix[30][40];
 int uinput_fd;
 
+/* mschnee: wrapper for ts configuration loading */
+#define CONFIG_FILE "/system/ts_srv.cfg"
+#define LINE_MAX 32
+enum configToken 
+    DEBUG, RAW_DATA_DEBUG, AVG_FILTER, USERSPACE_270_ROTATE, RECV_BUF_SIZE,
+	LIFTOFF_TIMEOUT, MAX_TOUCH, MAX_CLIST, MAX_DELTA, TOUCH_THRESHOLD
+};
+
+/**
+ *	A small wrapper to load settings from a file or use defaults, isntead
+ *	if #define'ing them.
+ *	@param configToken t enum See the enum declared above.
+	*	@return int com
+ */
+int get_config(configToken t) {
+	static int 
+		s_opened = 0,
+		s_debug = 0,
+		s_raw_data_debug = 0,
+		s_avg_filter = 1,
+		s_userspace_270_rotate = 0,
+		s_recv_buf_size = 1540,
+		s_liftoff_timeout 25000,
+		s_max_touch = 10,
+		s_max_clist =75,
+		s_max_delta = 25,
+		s_touch_threshold = 24;
+
+	if(!s_opened) {
+		s_opened = 1;
+		if(int settings_fd = open(CONFIG_FILE,O_RDONLY)){
+			/* allocate buffer */
+			char buff[LINE_MAX] = {0};
+
+			/* read */
+			while(fgets(buff,LINE_MAX,fp) != NULL) {
+				
+			}
+		} else {
+			// some kind of error opening the file.
+		}
+
+	}
+
+	
+}
+
 int send_uevent(int fd, __u16 type, __u16 code, __s32 value)
 {
     struct input_event event;
