@@ -109,7 +109,7 @@ typedef enum configToken {
 *	A small wrapper to load settings from a file or use defaults, isntead
 *	if #define'ing them.
 *	@param configToken t enum See the enum declared above.
-    *	@return int com
+*	@return int com
 */
 int get_config(_cfg t) {
     static int 
