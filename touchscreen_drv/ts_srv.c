@@ -98,7 +98,7 @@ int uinput_fd;
 #define CONFIG_FILE "/system/ts_srv.cfg" 
 #define LINE_MAX 32
 typedef enum configToken { 
-    DEBUG, RAW_DATA_DEBUG, AVG_FILTER, USERSPACE_270_ROTATE, RECV_BUF_SIZE,
+    DEBUG, RAW_DATA_DEBUG, RAW_DATA_THRESHOLD, AVG_FILTER, USERSPACE_270_ROTATE, RECV_BUF_SIZE,
     LIFTOFF_TIMEOUT, MAX_CLIST, MAX_DELTA, TOUCH_THRESHOLD,
     LARGE_AREA_FILTER, LARGE_AREA_THRESHOLD, LARGE_AREA_UNPRESS,
     DEBOUNCE_FILTER, DEBOUNCE_RADIUS
@@ -116,6 +116,7 @@ int get_config(_cfg t) {
         s_opened = 0,
         s_debug = 0,
         s_raw_data_debug = 0,
+		s_raw_data_threshold = 0,
         s_avg_filter = 1,
         s_userspace_270_filter = 0,
         s_recv_buf_size = 1540,
@@ -144,6 +145,8 @@ int get_config(_cfg t) {
                     s_debug = atoi(buff+6);
                 else if(sc(buff,"RAW_DATA_DEBUG="))
                     s_raw_data_debug = atoi(buff+15);
+				else if(sc(buff,"RAW_DATA_THRESHOLD="))
+                    s_raw_data_threshold = atoi(buff+19);
                 else if(sc(buff,"AVG_FILTER="))
                     s_avg_filter = atoi(buff+11);
                 else if(sc(buff,"USERSPACE_270_FILTER="))
@@ -183,11 +186,11 @@ int get_config(_cfg t) {
     switch(t) {
       case DEBUG: return s_debug; break;
       case RAW_DATA_DEBUG: return s_raw_data_debug; break;
+	  case RAW_DATA_THRESHOLD: return s_raw_data_threshold; break;
       case AVG_FILTER: return s_avg_filter; break;
       case USERSPACE_270_ROTATE: return s_userspace_270_filter; break;
       case RECV_BUF_SIZE: return s_recv_buf_size; break;
       case LIFTOFF_TIMEOUT: return s_liftoff_timeout; break;
-      case MAX_TOUCH: return s_max_touch; break;
       case MAX_CLIST: return s_max_clist; break;
       case MAX_DELTA: return s_max_delta; break;
       case TOUCH_THRESHOLD: return s_touch_threshold; break;
@@ -351,14 +354,14 @@ int calc_point(void)
 	static int previoustpc;
 	int clc=0;
 	struct candidate clist[MAX_CLIST];
-	if(get_config(LARGE_AREA_FILTER)) {
-	  int new_debounce_touch=0;
-	  static float initiali, initialj;
-	  if (tpoint[0].i < 0)
-		  new_debounce_touch=1;
+	int new_debounce_touch=0;
+	static float initiali, initialj;
+
+	if(get_config(DEBOUNCE_FILTER)) {
+		if (tpoint[0].i < 0)
+			new_debounce_touch=1;
 	}
-
-
+	
     //Record values for processing later
 	for(i=0; i < previoustpc; i++) {
 		prev2tpoint[i].i = prevtpoint[i].i;
